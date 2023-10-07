@@ -58,12 +58,11 @@ async def connect_and_operate(device, callback, blockType):
         await client.start_notify(CORE_INDICATE_UUID, callback)
         await client.write_gatt_char(CORE_WRITE_UUID, pack('<BBBB', 0, 2, 1, 3), response=True)
         print('Connected', device.name)
+        await client.get_services()
 
         if blockType == 'LE':
             global clientLE
             clientLE = client
-        
-        await client.get_services()
 
         try:
             while True:
