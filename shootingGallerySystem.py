@@ -50,7 +50,7 @@ async def control_led(client, duration, on, off, pattern, red, green, blue):
         print('Error', e)
 
 # ブロックと通信するメソッド
-async def connect_and_operate(device, callback):
+async def connect_and_operate(device, callback, blockType):
     async with BleakClient(device.address, timeout=None) as client:
         # Initialize
         await client.start_notify(CORE_NOTIFY_UUID, callback)
@@ -58,6 +58,11 @@ async def connect_and_operate(device, callback):
         await client.start_notify(CORE_INDICATE_UUID, callback)
         await client.write_gatt_char(CORE_WRITE_UUID, pack('<BBBB', 0, 2, 1, 3), response=True)
         print('Connected', device.name)
+
+        if blockType == 'LE':
+            global clientLE
+            clientLE = client
+        
         await client.get_services()
 
         try:
@@ -88,13 +93,11 @@ async def main():
     print('found', deviceAC.name, deviceAC.address)
     deviceLE = await scan('MESH-100LE')
     print('found', deviceLE.name, deviceLE.address)
-    global clientLE
-    clientLE = BleakClient(deviceLE, timeout=None)
     
     # Connect and Operate
     await asyncio.gather(
-        connect_and_operate(deviceAC, on_receive_notify),
-        connect_and_operate(deviceLE, on_receive)
+        connect_and_operate(deviceAC, on_receive_notify, blockType='AC'),
+        connect_and_operate(deviceLE, on_receive, blockType='LE')
     )
         
 # Initialize event loop
