@@ -16,7 +16,7 @@ EVENT_TYPE_ID = 0
 
 # Callback
 def on_receive_notify(sender, data: bytearray):
-    if data[MESSAGE_TYPE_INDEX] != MESSAGE_TYPE_ID and data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:
+    if data[MESSAGE_TYPE_INDEX] != MESSAGE_TYPE_ID or data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:
         return
     if data[2] == 1:
         print('Single Pressed.')
