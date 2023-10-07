@@ -15,26 +15,62 @@ MESSAGE_TYPE_ID = 1
 EVENT_TYPE_ID = 3
 
 # Callback
-def on_receive_notify(sender, data: bytearray):
+async def simple_callback(_, data: bytearray):
+    print("Received data:", data)
+
+# 動きブロックから通知を受け取り、LEDブロックを光らせるメソッド
+async def on_receive_notify(_, data: bytearray):
     if data[MESSAGE_TYPE_INDEX] != MESSAGE_TYPE_ID:  # Message Type ID のチェック
         return
     if data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:  # Event Type ID のチェック
         return
     if data[STATE_INDEX] == 3 or data[STATE_INDEX] == 4:  # 的が倒れたことを判定する
         print('Fell Over.')
+        await control_led(clientLE, duration=1500, on=1500, off=0, pattern=1, red=70, green=0, blue=0)
         return
-    if data[STATE_INDEX] == 1:
-        print('Left Side.')
-        return
-    if data[STATE_INDEX] == 6:  # 的が起き上がったことを判定する
-        print('Right Side.')
+    if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6:  # 的が起き上がったことを判定する
+        print('Stand Up.')
+        await control_led(clientLE, duration=2500, on=250, off=250, pattern=1, red=50, green=50, blue=0)
         return
 
-def on_receive(sender, data: bytearray):
+# LEDブロックを光らせるメソッド    
+async def control_led(client, duration, on, off, pattern, red, green, blue):
+    # print(client)
+    messagetype = 1
+    command = pack('<BBBBBBBHHHB', messagetype, 0, red, 0, green, 0, blue, duration, on, off, pattern)
+    checksum = 0
+    for x in command:
+        checksum += x
+    command += pack('B', checksum & 0xFF)  # Add check sum to byte array
+
+    try:
+        await client.write_gatt_char(CORE_WRITE_UUID, command, response=True)
+        await asyncio.sleep(duration / 1000)
+    except Exception as e:
+        print('Error', e)
+
+# ブロックと通信するメソッド
+async def connect_and_operate(device, callback):
+    async with BleakClient(device.address, timeout=None) as client:
+        # Initialize
+        await client.start_notify(CORE_NOTIFY_UUID, callback)
+        # await client.start_notify(CORE_NOTIFY_UUID, simple_callback)
+        await client.start_notify(CORE_INDICATE_UUID, callback)
+        await client.write_gatt_char(CORE_WRITE_UUID, pack('<BBBB', 0, 2, 1, 3), response=True)
+        print('Connected', device.name)
+        await client.get_services()
+
+        try:
+            while True:
+                await asyncio.sleep(1)
+        except KeyboardInterrupt:
+            pass
+
+def on_receive(_, data: bytearray):
     data = bytes(data)
     print(data)
 
-def on_receive_indicate(sender, data: bytearray):
+def on_receive_indicate(_, data: bytearray):
     data = bytes(data)
     print('[indicate] ',data)
 
@@ -52,55 +88,14 @@ async def main():
     print('found', deviceAC.name, deviceAC.address)
     deviceLE = await scan('MESH-100LE')
     print('found', deviceLE.name, deviceLE.address)
+    global clientLE
+    clientLE = BleakClient(deviceLE, timeout=None)
     
-
-    # Connect device
-    # Connect AC Block
-    async with BleakClient(deviceAC, timeout=None) as client:
-        # Initialize
-        await client.start_notify(CORE_NOTIFY_UUID, on_receive_notify)
-        await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
-        await client.write_gatt_char(CORE_WRITE_UUID, pack('<BBBB', 0, 2, 1, 3), response=True)
-        print('connected')
-
-        await asyncio.sleep(30)
-
-        # Finish
-    
-    # Connect LE Block
-    # async with BleakClient(deviceLE, timeout=None) as client:
-        # Initialize
-        await client.start_notify(CORE_NOTIFY_UUID, on_receive)
-        await client.start_notify(CORE_INDICATE_UUID, on_receive)
-        await client.write_gatt_char(CORE_WRITE_UUID, pack('<BBBB', 0, 2, 1, 3), response=True)
-        print('connected')
-
-        # Generate command
-        messagetype = 1
-        red = 2
-        green = 8
-        blue = 32
-        duration = 3000 # 3,000[ms]
-        on = 500 # 500[ms]
-        off = 500 # 500[ms]
-        pattern = 2 # 1:blink, 2:firefly
-        command = pack('<BBBBBBBHHHB', messagetype, 0, red, 0, green, 0, blue, duration, on, off, pattern)
-        checksum = 0
-        for x in command:
-            checksum += x
-        command = command + pack('B', checksum & 0xFF) # Add check sum to byte array
-        print('command ',command)
-        
-        try:
-            # Write command
-            await client.write_gatt_char(CORE_WRITE_UUID, command, response=True)
-        except Exception as e:
-            print('error', e)
-            return
-        
-        await asyncio.sleep(duration / 1000)
-
-        # Finish
+    # Connect and Operate
+    await asyncio.gather(
+        connect_and_operate(deviceAC, on_receive_notify),
+        connect_and_operate(deviceLE, on_receive)
+    )
         
 # Initialize event loop
 if __name__ == '__main__':
