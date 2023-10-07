@@ -16,12 +16,14 @@ EVENT_TYPE_ID = 3
 
 # Callback
 def on_receive_notify(sender, data: bytearray):
-    if data[MESSAGE_TYPE_INDEX] != MESSAGE_TYPE_ID and data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:
+    if data[MESSAGE_TYPE_INDEX] != MESSAGE_TYPE_ID:  # Message Type ID のチェック
+        return
+    if data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:  # Event Type ID のチェック
         return
     if data[STATE_INDEX] == 3 or data[STATE_INDEX] == 4:  # 的が倒れたことを判定する
         print('Fell Over.')
         return
-    # if data[STATE_INDEX] == 1:
+    if data[STATE_INDEX] == 1:
         print('Left Side.')
         return
     if data[STATE_INDEX] == 6:  # 的が起き上がったことを判定する
@@ -66,7 +68,7 @@ async def main():
         # Finish
     
     # Connect LE Block
-    async with BleakClient(deviceLE, timeout=None) as client:
+    # async with BleakClient(deviceLE, timeout=None) as client:
         # Initialize
         await client.start_notify(CORE_NOTIFY_UUID, on_receive)
         await client.start_notify(CORE_INDICATE_UUID, on_receive)
