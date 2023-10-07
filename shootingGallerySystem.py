@@ -12,20 +12,20 @@ MESSAGE_TYPE_INDEX = 0
 EVENT_TYPE_INDEX = 1
 STATE_INDEX = 2
 MESSAGE_TYPE_ID = 1
-EVENT_TYPE_ID = 0
+EVENT_TYPE_ID = 3
 
 # Callback
 def on_receive_notify(sender, data: bytearray):
     if data[MESSAGE_TYPE_INDEX] != MESSAGE_TYPE_ID and data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:
         return
-    if data[2] == 1:
-        print('Single Pressed.')
+    if data[STATE_INDEX] == 3 or data[STATE_INDEX] == 4:  # 的が倒れたことを判定する
+        print('Fell Over.')
         return
-    if data[2] == 2:
-        print('Long Pressed.')
+    # if data[STATE_INDEX] == 1:
+        print('Left Side.')
         return
-    if data[2] == 3:
-        print('Double Pressed.')
+    if data[STATE_INDEX] == 6:  # 的が起き上がったことを判定する
+        print('Right Side.')
         return
 
 def on_receive(sender, data: bytearray):
