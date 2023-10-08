@@ -15,11 +15,8 @@ MESSAGE_TYPE_ID = 1
 EVENT_TYPE_ID = 3
 
 # Callback
-async def simple_callback(_, data: bytearray):
-    print("Received data:", data)
-
-# 動きブロックから通知を受け取り、LEDブロックを光らせるメソッド
-async def on_receive_notify(_, data: bytearray):
+# 動きブロックから通知を受け取り、なんかするメソッド
+async def on_receive_notify(_, data: bytearray, clientLED):
     if data[MESSAGE_TYPE_INDEX] != MESSAGE_TYPE_ID:  # Message Type ID のチェック
         return
     if data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:  # Event Type ID のチェック
@@ -32,6 +29,14 @@ async def on_receive_notify(_, data: bytearray):
         print('Stand Up.')
         await control_led(clientLE, duration=2500, on=250, off=250, pattern=1, red=50, green=50, blue=0)
         return
+
+def on_receive(_, data: bytearray):
+    data = bytes(data)
+    print(data)
+
+def on_receive_indicate(_, data: bytearray):
+    data = bytes(data)
+    print('[indicate] ',data)
 
 # LEDブロックを光らせるメソッド    
 async def control_led(client, duration, on, off, pattern, red, green, blue):
@@ -69,14 +74,6 @@ async def connect_and_operate(device, callback, blockType):
                 await asyncio.sleep(1)
         except KeyboardInterrupt:
             pass
-
-def on_receive(_, data: bytearray):
-    data = bytes(data)
-    print(data)
-
-def on_receive_indicate(_, data: bytearray):
-    data = bytes(data)
-    print('[indicate] ',data)
 
 async def scan(prefix='MESH-100'):
     while True:
