@@ -2,6 +2,8 @@ import asyncio
 from bleak import BleakClient, discover
 from struct import pack
 from functools import partial
+import pygame
+import threading
 
 # UUID
 CORE_INDICATE_UUID = ('72c90005-57a9-4d40-b746-534e22ec9f9e')
@@ -42,7 +44,10 @@ async def on_receive_notify(blockManager, _, data: bytearray):
         return
     if data[STATE_INDEX] == 3 or data[STATE_INDEX] == 4:  # 的が倒れたことを判定する
         print('Fell Over.')
-        await control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=70, green=0, blue=0)
+        await asyncio.gather(
+            play_sound_thread("../sound_effect/Phrase02-1.mp3"),
+            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=70, green=0, blue=0)
+        )
         return
     if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6 or data[STATE_INDEX] == 2 or data[STATE_INDEX] == 5:  # 的が起き上がったことを判定する
         print('Stand Up.')
@@ -71,6 +76,17 @@ async def control_led(client, duration, on, off, pattern, red, green, blue):
         await asyncio.sleep(duration / 1000)
     except Exception as e:
         print('Error', e)
+
+# Windowsでサウンドを再生するメソッド
+def play_sound(file_path):
+    pygame.mixer.init()
+    sound = pygame.mixer.Sound(file_path)
+    sound.play()
+
+# 上記のメソッドを別スレッドで再生する
+async def play_sound_thread(file_path):
+    thread = threading.Thread(target=play_sound, args=(file_path,))
+    thread.start()
 
 # ブロックと通信するメソッド
 async def connect_and_operate(device, blockManager):
