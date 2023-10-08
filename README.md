@@ -48,6 +48,7 @@ MESHアプリからブロックをアップデートしてください。
 
 ## ライセンス
 MESH ブロック 技術文書のライセンスを継承しています。
+
 Original document by Sony Marketing Inc., is licensed under CC BY 4.0.
 https://developer.meshprj.com
 https://creativecommons.org/licenses/by/4.0/
