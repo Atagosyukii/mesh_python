@@ -44,3 +44,10 @@ pip install bleak
 ## トラブルシューティング
 プログラムを実行した際、MESHブロックとの初回接続でWinエラーなどと表示されプログラムが停止する場合、MESHブロックのバージョンが古い可能性があります。
 MESHアプリからブロックをアップデートしてください。
+
+
+## ライセンス
+MESH ブロック 技術文書のライセンスを継承しています。
+Original document by Sony Marketing Inc., is licensed under CC BY 4.0.
+https://developer.meshprj.com
+https://creativecommons.org/licenses/by/4.0/
