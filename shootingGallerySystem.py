@@ -44,7 +44,7 @@ async def on_receive_notify(blockManager, _, data: bytearray):
         print('Fell Over.')
         await control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=70, green=0, blue=0)
         return
-    if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6:  # 的が起き上がったことを判定する
+    if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6 or data[STATE_INDEX] == 2 or data[STATE_INDEX] == 5:  # 的が起き上がったことを判定する
         print('Stand Up.')
         await control_led(blockManager.get_le_client(), duration=2000, on=250, off=250, pattern=1, red=50, green=50, blue=0)
         return
