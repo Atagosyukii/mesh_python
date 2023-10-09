@@ -10,18 +10,12 @@ CORE_INDICATE_UUID = ('72c90005-57a9-4d40-b746-534e22ec9f9e')
 CORE_NOTIFY_UUID = ('72c90003-57a9-4d40-b746-534e22ec9f9e')
 CORE_WRITE_UUID = ('72c90004-57a9-4d40-b746-534e22ec9f9e')
 
-# Constant values
-MESSAGE_TYPE_INDEX = 0
-EVENT_TYPE_INDEX = 1
-STATE_INDEX = 2
-MESSAGE_TYPE_ID = 1
-EVENT_TYPE_ID = 3
-
 # MESHブロックの状態管理クラス
 class BlockManager:
     def __init__(self):
         self._ac_client = None
         self._le_client = None
+        self._gp_client = None
 
     def set_ac_client(self, client):
         self._ac_client = client
@@ -34,10 +28,23 @@ class BlockManager:
 
     def get_le_client(self):
         return self._le_client
+    
+    def set_gp_client(self, client):
+        self._gp_client = client
+
+    def get_gp_client(self):
+        return self._gp_client
 
 # Callback
 # 動きブロックから通知を受け取り、なんかするメソッド
 async def on_receive_notify(blockManager, _, data: bytearray):
+    # Constant values
+    MESSAGE_TYPE_INDEX = 0
+    EVENT_TYPE_INDEX = 1
+    STATE_INDEX = 2
+    MESSAGE_TYPE_ID = 1
+    EVENT_TYPE_ID = 3
+
     if data[MESSAGE_TYPE_INDEX] != MESSAGE_TYPE_ID:  # Message Type ID のチェック
         return
     if data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:  # Event Type ID のチェック
@@ -77,6 +84,20 @@ async def control_led(client, duration, on, off, pattern, red, green, blue):
     except Exception as e:
         print('Error', e)
 
+# GPIOブロックを操作するメソッド
+async def control_gpio(client, pin, value):
+    messagetype = 1
+    command = pack('<BBBB', messagetype, 1, pin, value)
+    checksum = 0
+    for x in command:
+        checksum += x
+    command += pack('B', checksum & 0xFF)  # Add check sum to byte array
+
+    try:
+        await client.write_gatt_char(CORE_WRITE_UUID, command, response=True)
+    except Exception as e:
+        print('Error', e)
+
 # Windowsでサウンドを再生するメソッド
 def play_sound(file_path):
     pygame.mixer.init()
@@ -97,6 +118,10 @@ async def connect_and_operate(device, blockManager):
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
             blockManager.set_ac_client(client)
+        elif device.name.startswith('MESH-100GP'):  # GPIOブロックの場合
+            await client.start_notify(CORE_NOTIFY_UUID, on_receive)
+            await client.start_notify(CORE_INDICATE_UUID, on_receive)
+            blockManager.set_gp_client(client)
         else:  # LEDブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
@@ -116,7 +141,9 @@ async def scan(prefix='MESH-100'):
     while True:
         print('scan...')
         try:
-            return next(d for d in await discover() if d.name and d.name.startswith(prefix))
+            device = next(d for d in await discover() if d.name and d.name.startswith(prefix))
+            print('found', device.name, device.address)
+            return device
         except StopIteration:
             continue
 
@@ -124,15 +151,19 @@ async def main():
     # BlockManager のインスタンス生成
     blockManager = BlockManager()
     # Scan device
-    deviceAC = await scan('MESH-100AC')
-    print('found', deviceAC.name, deviceAC.address)
-    deviceLE = await scan('MESH-100LE')
-    print('found', deviceLE.name, deviceLE.address)
+    deviceAC, deviceLE, deviceGP = ""
+    await asyncio.gather(
+        deviceAC = scan('MESH-100AC'),
+        deviceLE = scan('MESH-100LE'),
+        deviceGP = scan('MESH-100GP')
+    )
+    
     
     # Connect and Operate
     await asyncio.gather(
         connect_and_operate(deviceAC, blockManager),
-        connect_and_operate(deviceLE, blockManager)
+        connect_and_operate(deviceLE, blockManager),
+        connect_and_operate(deviceGP, blockManager)
     )
         
 # Initialize event loop
