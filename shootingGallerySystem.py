@@ -53,12 +53,17 @@ async def on_receive_notify(blockManager, _, data: bytearray):
         print('Fell Over.')
         await asyncio.gather(
             play_sound_thread("sound_effect/Phrase02-1.mp3"),
-            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=70, green=0, blue=0)
+            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=70, green=0, blue=0),
+            control_gpio_output_power(blockManager.get_gp_client(), power_state=1)
         )
+        
         return
     if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6 or data[STATE_INDEX] == 2 or data[STATE_INDEX] == 5:  # 的が起き上がったことを判定する
         print('Stand Up.')
-        await control_led(blockManager.get_le_client(), duration=2000, on=250, off=250, pattern=1, red=50, green=50, blue=0)
+        await asyncio.gather(
+            control_led(blockManager.get_le_client(), duration=2000, on=250, off=250, pattern=1, red=50, green=50, blue=0),
+            control_gpio_output_power(blockManager.get_gp_client(), power_state=2)
+        )
         return
 
 def on_receive(_, data: bytearray):
@@ -84,10 +89,13 @@ async def control_led(client, duration, on, off, pattern, red, green, blue):
     except Exception as e:
         print('Error', e)
 
-# GPIOブロックを操作するメソッド
-async def control_gpio(client, pin, value):
-    messagetype = 1
-    command = pack('<BBBB', messagetype, 1, pin, value)
+# GPIOブロックの電源出力を操作するメソッド
+async def control_gpio_output_power(client, power_state):
+    # Constant values
+    MESSAGE_TYPE_ID = 1
+    EVENT_TYPE_ID = 1
+
+    command = pack('<BBBBBBBBBB', MESSAGE_TYPE_ID, EVENT_TYPE_ID, 0, 0, 0, 0, power_state, 0, 0, 0)
     checksum = 0
     for x in command:
         checksum += x
@@ -95,6 +103,7 @@ async def control_gpio(client, pin, value):
 
     try:
         await client.write_gatt_char(CORE_WRITE_UUID, command, response=True)
+        print('GPIO output power state: ', power_state)
     except Exception as e:
         print('Error', e)
 
@@ -150,14 +159,12 @@ async def scan(prefix='MESH-100'):
 async def main():
     # BlockManager のインスタンス生成
     blockManager = BlockManager()
-    # Scan device
-    deviceAC, deviceLE, deviceGP = ""
-    await asyncio.gather(
-        deviceAC = scan('MESH-100AC'),
-        deviceLE = scan('MESH-100LE'),
-        deviceGP = scan('MESH-100GP')
+    # Scan devices
+    deviceAC, deviceLE, deviceGP = await asyncio.gather(
+        scan('MESH-100AC'),
+        scan('MESH-100LE'),
+        scan('MESH-100GP')
     )
-    
     
     # Connect and Operate
     await asyncio.gather(
@@ -168,5 +175,12 @@ async def main():
         
 # Initialize event loop
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        print('Program stopped by user.')
+    finally:
+        loop.close()
+    
