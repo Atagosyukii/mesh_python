@@ -52,7 +52,7 @@ async def on_receive_notify(blockManager, _, data: bytearray):
     if data[STATE_INDEX] == 3 or data[STATE_INDEX] == 4:  # 的が倒れたことを判定する
         print('Fell Over.')
         await asyncio.gather(
-            play_sound_thread("../sound_effect/Phrase02-1.mp3"),
+            play_sound_thread("sound_effect/Phrase02-1.mp3"),
             control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=70, green=0, blue=0)
         )
         return
