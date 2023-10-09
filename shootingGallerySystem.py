@@ -12,10 +12,21 @@ CORE_WRITE_UUID = ('72c90004-57a9-4d40-b746-534e22ec9f9e')
 
 # MESHブロックの状態管理クラス
 class BlockManager:
-    def __init__(self):
+    def __init__(self, total_devices):
         self._ac_client = None
         self._le_client = None
         self._gp_client = None
+        self._connected_devices = 0
+        self.total_devices = total_devices
+
+    async def mark_connected(self):
+        self._connected_devices += 1
+        if self._connected_devices == self.total_devices:
+            await self.all_devices_connected()
+
+    async def all_devices_connected(self):
+        print('All devices connected.')
+        await control_led(self._le_client, duration=3000, on=500, off=500, pattern=1, red=0, green=70, blue=0)
 
     def set_ac_client(self, client):
         self._ac_client = client
@@ -61,7 +72,7 @@ async def on_receive_notify(blockManager, _, data: bytearray):
     if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6 or data[STATE_INDEX] == 2 or data[STATE_INDEX] == 5:  # 的が起き上がったことを判定する
         print('Stand Up.')
         await asyncio.gather(
-            control_led(blockManager.get_le_client(), duration=2000, on=250, off=250, pattern=1, red=50, green=50, blue=0),
+            control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=42, green=28, blue=0),
             control_gpio_output_power(blockManager.get_gp_client(), power_state=2)
         )
         return
@@ -121,7 +132,6 @@ async def play_sound_thread(file_path):
 # ブロックと通信するメソッド
 async def connect_and_operate(device, blockManager):
     async with BleakClient(device.address, timeout=None) as client:
-        print(device.name)
         # Initialize
         if device.name.startswith('MESH-100AC'):  # 動きブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify, blockManager))
@@ -137,8 +147,9 @@ async def connect_and_operate(device, blockManager):
             blockManager.set_le_client(client)
 
         await client.write_gatt_char(CORE_WRITE_UUID, pack('<BBBB', 0, 2, 1, 3), response=True)
-        print('Connected', device.name)
-        await client.get_services()  # そのうち無くなるメソッド
+        await client.get_services()
+        print('[Connected]', device.name, device.address)
+        await blockManager.mark_connected()
 
         try:
             while True:
@@ -157,21 +168,18 @@ async def scan(prefix='MESH-100'):
             continue
 
 async def main():
-    # BlockManager のインスタンス生成
-    blockManager = BlockManager()
-    # Scan devices
-    deviceAC, deviceLE, deviceGP = await asyncio.gather(
-        scan('MESH-100AC'),
-        scan('MESH-100LE'),
-        scan('MESH-100GP')
-    )
+   # BlockManager のインスタンス生成
+    devices_to_connect = ['MESH-100AC', 'MESH-100LE', 'MESH-100GP']
+    blockManager = BlockManager(len(devices_to_connect))
     
-    # Connect and Operate
-    await asyncio.gather(
-        connect_and_operate(deviceAC, blockManager),
-        connect_and_operate(deviceLE, blockManager),
-        connect_and_operate(deviceGP, blockManager)
-    )
+    # Scan devices
+    scanned_devices = await asyncio.gather(*(scan(device) for device in devices_to_connect))
+    
+    # MESHブロックとの接続を確立し、通信を開始する
+    await asyncio.gather(*(connect_and_operate(device, blockManager) for device in scanned_devices))
+
+    print('All connected.')
+    await blockManager.wait_all_connected()
         
 # Initialize event loop
 if __name__ == '__main__':
