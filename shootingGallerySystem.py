@@ -26,7 +26,7 @@ class BlockManager:
 
     async def all_devices_connected(self):
         print('All devices connected.')
-        await control_led(self._le_client, duration=3000, on=500, off=500, pattern=1, red=0, green=70, blue=0)
+        await control_led(self._le_client, duration=3000, on=500, off=500, pattern=1, red=0, green=127, blue=0)
 
     def set_ac_client(self, client):
         self._ac_client = client
@@ -64,7 +64,7 @@ async def on_receive_notify(blockManager, _, data: bytearray):
         print('Fell Over.')
         await asyncio.gather(
             play_sound_thread("sound_effect/Phrase02-1.mp3"),
-            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=70, green=0, blue=0),
+            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=127, green=0, blue=0),
             control_gpio_output_power(blockManager.get_gp_client(), power_state=1)
         )
         
@@ -72,7 +72,7 @@ async def on_receive_notify(blockManager, _, data: bytearray):
     if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6 or data[STATE_INDEX] == 2 or data[STATE_INDEX] == 5:  # 的が起き上がったことを判定する
         print('Stand Up.')
         await asyncio.gather(
-            control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=42, green=28, blue=0),
+            control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=84, green=56, blue=0),
             control_gpio_output_power(blockManager.get_gp_client(), power_state=2)
         )
         return
