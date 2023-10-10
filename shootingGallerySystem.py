@@ -177,9 +177,6 @@ async def main():
     
     # MESHブロックとの接続を確立し、通信を開始する
     await asyncio.gather(*(connect_and_operate(device, blockManager) for device in scanned_devices))
-
-    print('All connected.')
-    await blockManager.wait_all_connected()
         
 # Initialize event loop
 if __name__ == '__main__':
