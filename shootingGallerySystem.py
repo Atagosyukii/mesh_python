@@ -1,5 +1,5 @@
 import asyncio
-from bleak import BleakClient, discover
+from bleak import BleakClient, BleakScanner
 from struct import pack
 from functools import partial
 import pygame
@@ -161,7 +161,7 @@ async def scan(prefix='MESH-100'):
     while True:
         print('scan...')
         try:
-            device = next(d for d in await discover() if d.name and d.name.startswith(prefix))
+            device = next(d for d in await BleakScanner.discover() if d.name and d.name.startswith(prefix))
             print('found', device.name, device.address)
             return device
         except StopIteration:
