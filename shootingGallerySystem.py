@@ -137,7 +137,7 @@ async def connect_and_operate(device, blockManager):
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
             blockManager.set_ac_client(client)
-        elif device.name.startswith('MESH-100GP'):  # GPIOブロックの場合
+        elif device.name.startswith('MESH-100GP'):  # GPIOブロックの場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
             blockManager.set_gp_client(client)
