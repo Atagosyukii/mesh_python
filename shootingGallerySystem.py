@@ -147,7 +147,7 @@ async def connect_and_operate(device, blockManager):
             blockManager.set_le_client(client)
 
         await client.write_gatt_char(CORE_WRITE_UUID, pack('<BBBB', 0, 2, 1, 3), response=True)
-        await client.get_services()
+        client.services
         print('[Connected]', device.name, device.address)
         await blockManager.mark_connected()
 
