@@ -16,6 +16,7 @@ class BlockManager:
         self._ac_client = None
         self._le_client = None
         self._gp_client = None
+        self._bu_client = None
         self._connected_devices = 0
         self.total_devices = total_devices
 
@@ -45,10 +46,17 @@ class BlockManager:
 
     def get_gp_client(self):
         return self._gp_client
+    
+    def set_bu_client(self, client):
+        self._bu_client = client
+
+    def get_bu_client(self):
+        return self._bu_client
+    
 
 # Callback
 # 動きブロックから通知を受け取り、なんかするメソッド
-async def on_receive_notify(blockManager, _, data: bytearray):
+async def on_receive_notify_AC(blockManager, _, data: bytearray):
     # Constant values
     MESSAGE_TYPE_INDEX = 0
     EVENT_TYPE_INDEX = 1
@@ -67,12 +75,32 @@ async def on_receive_notify(blockManager, _, data: bytearray):
             control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=127, green=0, blue=0),
             control_gpio_output_power(blockManager.get_gp_client(), power_state=1)
         )
-        
         return
     if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6 or data[STATE_INDEX] == 2 or data[STATE_INDEX] == 5:  # 的が起き上がったことを判定する
         print('Stand Up.')
         await asyncio.gather(
             control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=84, green=56, blue=0),
+            control_gpio_output_power(blockManager.get_gp_client(), power_state=2)
+        )
+        return
+
+# ボタンブロックから通知を受け取り、なんかするメソッド    
+async def on_receive_notify_BU(blockManager, _, data: bytearray):
+    # Constant values
+    MESSAGE_TYPE_INDEX = 0
+    EVENT_TYPE_INDEX = 1
+    STATE_INDEX = 2
+    MESSAGE_TYPE_ID = 1
+    EVENT_TYPE_ID = 0
+    
+    if data[MESSAGE_TYPE_INDEX] != MESSAGE_TYPE_ID:  # Message Type ID のチェック
+        return
+    if data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:  # Event Type ID のチェック
+        return
+    if data[STATE_INDEX] == 3:  # ボタンが2回押されたことを判定する
+        print('State Reset.')
+        await asyncio.gather(
+            control_led(blockManager.get_le_client(), duration=3000, on=500, off=0, pattern=2, red=0, green=0, blue=127),
             control_gpio_output_power(blockManager.get_gp_client(), power_state=2)
         )
         return
@@ -134,7 +162,11 @@ async def connect_and_operate(device, blockManager):
     async with BleakClient(device.address, timeout=None) as client:
         # Initialize
         if device.name.startswith('MESH-100AC'):  # 動きブロックの場合
-            await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify, blockManager))
+            await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify_AC, blockManager))
+            await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
+            blockManager.set_ac_client(client)
+        if device.name.startswith('MESH-100BU'):  # ボタンブロックの場合
+            await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify_BU, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
             blockManager.set_ac_client(client)
         elif device.name.startswith('MESH-100GP'):  # GPIOブロックの場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
@@ -169,7 +201,7 @@ async def scan(prefix='MESH-100'):
 
 async def main():
    # BlockManager のインスタンス生成
-    devices_to_connect = ['MESH-100AC', 'MESH-100LE', 'MESH-100GP']
+    devices_to_connect = ['MESH-100AC', 'MESH-100LE', 'MESH-100GP', 'MESH-100BU']
     blockManager = BlockManager(len(devices_to_connect))
     
     # Scan devices
