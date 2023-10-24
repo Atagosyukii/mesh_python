@@ -191,14 +191,15 @@ async def connect_and_operate(device, blockManager):
         elif device.name.startswith('MESH-100BU'):  # ボタンブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify_BU, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
-            blockManager.set_ac_client(client)
-        elif device.name.startswith('MESH-100GP'):  # GPIOブロックの場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
+            blockManager.set_bu_client(client)
+        elif device.name == TARGET_DEVICES['MESH-100GP1']:  # GPIOブロック1の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
-            if "GP1" in device.name:
-                blockManager.set_gp_client1(client)
-            else:
-                blockManager.set_gp_client2(client)
+            blockManager.set_gp_client1(client)
+        elif device.name == TARGET_DEVICES['MESH-100GP2']:  # GPIOブロック2の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
+            await client.start_notify(CORE_NOTIFY_UUID, on_receive)
+            await client.start_notify(CORE_INDICATE_UUID, on_receive)
+            blockManager.set_gp_client2(client)
         elif device.name.startswith('MESH-100LE'):  # LEDブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
@@ -234,7 +235,7 @@ async def main():
     # Scan devices
     scanned_devices = await asyncio.gather(*(scan(device_type=device) for device in devices_to_connect))
     
-    # MESHブロックとの接続を確立し、通信を開始する
+    # MESHブロックとの接続を確立し、通信を開始する  
     await asyncio.gather(*(connect_and_operate(device, blockManager) for device in scanned_devices))
         
 # Initialize event loop
