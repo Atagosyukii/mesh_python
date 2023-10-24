@@ -13,7 +13,8 @@ config.read('config.ini', encoding='utf-8')
 TARGET_DEVICES = {
     'MESH-100AC': "MESH-100AC" + config['MESH_DEVICES']['MESH-100AC'],
     'MESH-100LE': "MESH-100LE" + config['MESH_DEVICES']['MESH-100LE'],
-    'MESH-100GP': "MESH-100GP" + config['MESH_DEVICES']['MESH-100GP'],
+    'MESH-100GP1': "MESH-100GP" + config['MESH_DEVICES']['MESH-100GP1'],
+    'MESH-100GP2': "MESH-100GP" + config['MESH_DEVICES']['MESH-100GP2'],
     'MESH-100BU': "MESH-100BU" + config['MESH_DEVICES']['MESH-100BU'],
 }
 
@@ -27,7 +28,8 @@ class BlockManager:
     def __init__(self, total_devices):
         self._ac_client = None
         self._le_client = None
-        self._gp_client = None
+        self._gp_client1 = None
+        self._gp_client2 = None
         self._bu_client = None
         self._connected_devices = 0
         self.total_devices = total_devices
@@ -53,11 +55,17 @@ class BlockManager:
     def get_le_client(self):
         return self._le_client
     
-    def set_gp_client(self, client):
-        self._gp_client = client
+    def set_gp_client1(self, client):
+        self._gp_client1 = client
 
-    def get_gp_client(self):
-        return self._gp_client
+    def get_gp_client1(self):
+        return self._gp_client1
+    
+    def set_gp_client2(self, client):
+        self._gp_client2 = client
+
+    def get_gp_client2(self):
+        return self._gp_client2
     
     def set_bu_client(self, client):
         self._bu_client = client
@@ -85,14 +93,16 @@ async def on_receive_notify_AC(blockManager, _, data: bytearray):
         await asyncio.gather(
             play_sound_thread("sound_effect/Phrase02-1.mp3"),
             control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=127, green=0, blue=0),
-            control_gpio_output_power(blockManager.get_gp_client(), power_state=1)
+            control_gpio_output_power(blockManager.get_gp_client1(), power_state=1),
+            control_gpio_output_power(blockManager.get_gp_client2(), power_state=1)
         )
         return
     if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6 or data[STATE_INDEX] == 2 or data[STATE_INDEX] == 5:  # 的が起き上がったことを判定する
         print('Stand Up.')
         await asyncio.gather(
             control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=84, green=56, blue=0),
-            control_gpio_output_power(blockManager.get_gp_client(), power_state=2)
+            control_gpio_output_power(blockManager.get_gp_client1(), power_state=1),
+            control_gpio_output_power(blockManager.get_gp_client2(), power_state=1)
         )
         return
 
@@ -113,7 +123,8 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
         print('State Reset.')
         await asyncio.gather(
             control_led(blockManager.get_le_client(), duration=3000, on=500, off=0, pattern=2, red=0, green=0, blue=127),
-            control_gpio_output_power(blockManager.get_gp_client(), power_state=2)
+            control_gpio_output_power(blockManager.get_gp_client1(), power_state=2),
+            control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
         )
         return
 
@@ -177,15 +188,18 @@ async def connect_and_operate(device, blockManager):
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify_AC, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
             blockManager.set_ac_client(client)
-        if device.name.startswith('MESH-100BU'):  # ボタンブロックの場合
+        elif device.name.startswith('MESH-100BU'):  # ボタンブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify_BU, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
             blockManager.set_ac_client(client)
         elif device.name.startswith('MESH-100GP'):  # GPIOブロックの場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
-            blockManager.set_gp_client(client)
-        else:  # LEDブロックの場合
+            if "GP1" in device.name:
+                blockManager.set_gp_client1(client)
+            else:
+                blockManager.set_gp_client2(client)
+        elif device.name.startswith('MESH-100LE'):  # LEDブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
             blockManager.set_le_client(client)
@@ -214,7 +228,7 @@ async def scan(device_type):
 
 async def main():
    # BlockManager のインスタンス生成
-    devices_to_connect = ['MESH-100AC', 'MESH-100LE', 'MESH-100GP', 'MESH-100BU']
+    devices_to_connect = ['MESH-100AC', 'MESH-100LE', 'MESH-100GP1', 'MESH-100GP2', 'MESH-100BU']
     blockManager = BlockManager(len(devices_to_connect))
     
     # Scan devices
