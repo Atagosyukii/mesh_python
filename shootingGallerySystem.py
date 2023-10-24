@@ -4,6 +4,18 @@ from struct import pack
 from functools import partial
 import pygame
 import threading
+import configparser
+
+# 設定ファイルの読み込み
+config = configparser.ConfigParser()
+config.read('config.ini', encoding='utf-8')
+
+TARGET_DEVICES = {
+    'MESH-100AC': "MESH-100AC" + config['MESH_DEVICES']['MESH-100AC'],
+    'MESH-100LE': "MESH-100LE" + config['MESH_DEVICES']['MESH-100LE'],
+    'MESH-100GP': "MESH-100GP" + config['MESH_DEVICES']['MESH-100GP'],
+    'MESH-100BU': "MESH-100BU" + config['MESH_DEVICES']['MESH-100BU'],
+}
 
 # UUID
 CORE_INDICATE_UUID = ('72c90005-57a9-4d40-b746-534e22ec9f9e')
@@ -189,11 +201,12 @@ async def connect_and_operate(device, blockManager):
         except KeyboardInterrupt:
             pass
 
-async def scan(prefix='MESH-100'):
+async def scan(device_type):
+    target_name = TARGET_DEVICES[device_type]
     while True:
         print('scan...')
         try:
-            device = next(d for d in await BleakScanner.discover() if d.name and d.name.startswith(prefix))
+            device = next(d for d in await BleakScanner.discover() if d.name and d.name == target_name)
             print('found', device.name, device.address)
             return device
         except StopIteration:
@@ -205,7 +218,7 @@ async def main():
     blockManager = BlockManager(len(devices_to_connect))
     
     # Scan devices
-    scanned_devices = await asyncio.gather(*(scan(device) for device in devices_to_connect))
+    scanned_devices = await asyncio.gather(*(scan(device_type=device) for device in devices_to_connect))
     
     # MESHブロックとの接続を確立し、通信を開始する
     await asyncio.gather(*(connect_and_operate(device, blockManager) for device in scanned_devices))
