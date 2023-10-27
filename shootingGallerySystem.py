@@ -10,13 +10,10 @@ import configparser
 config = configparser.ConfigParser()
 config.read('config.ini', encoding='utf-8')
 
-TARGET_DEVICES = {
-    'MESH-100AC': "MESH-100AC" + config['MESH_DEVICES']['MESH-100AC'],
-    'MESH-100LE': "MESH-100LE" + config['MESH_DEVICES']['MESH-100LE'],
-    'MESH-100GP1': "MESH-100GP" + config['MESH_DEVICES']['MESH-100GP1'],
-    'MESH-100GP2': "MESH-100GP" + config['MESH_DEVICES']['MESH-100GP2'],
-    'MESH-100BU': "MESH-100BU" + config['MESH_DEVICES']['MESH-100BU'],
-}
+TARGET_DEVICES = dict(config['MESH_DEVICES'])
+TARGET_DEVICES = {key: value for key, value in TARGET_DEVICES.items() if value and value.strip()}
+
+print(TARGET_DEVICES)
 
 # UUID
 CORE_INDICATE_UUID = ('72c90005-57a9-4d40-b746-534e22ec9f9e')
@@ -184,23 +181,23 @@ async def play_sound_thread(file_path):
 async def connect_and_operate(device, blockManager):
     async with BleakClient(device.address, timeout=None) as client:
         # Initialize
-        if device.name.startswith('MESH-100AC'):  # 動きブロックの場合
+        if device.keys == TARGET_DEVICES['MESH-100AC']:  # 動きブロックの場合 
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify_AC, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
             blockManager.set_ac_client(client)
-        elif device.name.startswith('MESH-100BU'):  # ボタンブロックの場合
+        elif device.keys == TARGET_DEVICES['MESH-100BU']:  # ボタンブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify_BU, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
             blockManager.set_bu_client(client)
-        elif device.name == TARGET_DEVICES['MESH-100GP1']:  # GPIOブロック1の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
+        elif device.keys == TARGET_DEVICES['MESH-100GP1']:  # GPIOブロック1の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
             blockManager.set_gp_client1(client)
-        elif device.name == TARGET_DEVICES['MESH-100GP2']:  # GPIOブロック2の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
+        elif device.keys == TARGET_DEVICES['MESH-100GP2']:  # GPIOブロック2の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
             blockManager.set_gp_client2(client)
-        elif device.name.startswith('MESH-100LE'):  # LEDブロックの場合
+        elif device.keys == TARGET_DEVICES['MESH-100LE']:  # LEDブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
             blockManager.set_le_client(client)
@@ -217,6 +214,7 @@ async def connect_and_operate(device, blockManager):
             pass
 
 async def scan(device_type):
+    print(f"Scanning for device_type: {device_type}")
     target_name = TARGET_DEVICES[device_type]
     while True:
         print('scan...')
@@ -229,7 +227,7 @@ async def scan(device_type):
 
 async def main():
    # BlockManager のインスタンス生成
-    devices_to_connect = ['MESH-100AC', 'MESH-100LE', 'MESH-100GP1', 'MESH-100GP2', 'MESH-100BU']
+    devices_to_connect = list(TARGET_DEVICES.keys())
     blockManager = BlockManager(len(devices_to_connect))
     
     # Scan devices
