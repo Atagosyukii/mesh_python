@@ -94,12 +94,13 @@ async def on_receive_notify_AC(blockManager, _, data: bytearray):
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=1)
         )
         return
+    
     if data[STATE_INDEX] == 1 or data[STATE_INDEX] == 6 or data[STATE_INDEX] == 2 or data[STATE_INDEX] == 5:  # 的が起き上がったことを判定する
         print('Stand Up.')
         await asyncio.gather(
             control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=84, green=56, blue=0),
-            control_gpio_output_power(blockManager.get_gp_client1(), power_state=1),
-            control_gpio_output_power(blockManager.get_gp_client2(), power_state=1)
+            control_gpio_output_power(blockManager.get_gp_client1(), power_state=2),
+            control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
         )
         return
 
@@ -119,7 +120,7 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
     if data[STATE_INDEX] == 3:  # ボタンが2回押されたことを判定する
         print('State Reset.')
         await asyncio.gather(
-            control_led(blockManager.get_le_client(), duration=3000, on=500, off=0, pattern=2, red=0, green=0, blue=127),
+            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=0, green=0, blue=127),
             control_gpio_output_power(blockManager.get_gp_client1(), power_state=2),
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
         )
@@ -150,6 +151,9 @@ async def control_led(client, duration, on, off, pattern, red, green, blue):
 
 # GPIOブロックの電源出力を操作するメソッド
 async def control_gpio_output_power(client, power_state):
+    # クライアントが存在しない場合は処理を終了する
+    if client is None: return
+
     # Constant values
     MESSAGE_TYPE_ID = 1
     EVENT_TYPE_ID = 1
@@ -181,23 +185,23 @@ async def play_sound_thread(file_path):
 async def connect_and_operate(device, blockManager):
     async with BleakClient(device.address, timeout=None) as client:
         # Initialize
-        if device.keys == TARGET_DEVICES['MESH-100AC']:  # 動きブロックの場合 
+        if device.name == TARGET_DEVICES.get('mesh-100ac'):  # 動きブロックの場合 
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify_AC, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
             blockManager.set_ac_client(client)
-        elif device.keys == TARGET_DEVICES['MESH-100BU']:  # ボタンブロックの場合
+        elif device.name == TARGET_DEVICES.get('mesh-100bu'):  # ボタンブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, partial(on_receive_notify_BU, blockManager))
             await client.start_notify(CORE_INDICATE_UUID, on_receive_indicate)
             blockManager.set_bu_client(client)
-        elif device.keys == TARGET_DEVICES['MESH-100GP1']:  # GPIOブロック1の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
+        elif device.name == TARGET_DEVICES.get('mesh-100gp1'):  # GPIOブロック1の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
             blockManager.set_gp_client1(client)
-        elif device.keys == TARGET_DEVICES['MESH-100GP2']:  # GPIOブロック2の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
+        elif device.name == TARGET_DEVICES.get('mesh-100gp2'):  # GPIOブロック2の場合 (今後通知を受け取るかもしれないので、条件分岐しています。)
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
             blockManager.set_gp_client2(client)
-        elif device.keys == TARGET_DEVICES['MESH-100LE']:  # LEDブロックの場合
+        elif device.name == TARGET_DEVICES.get('mesh-100le'):  # LEDブロックの場合
             await client.start_notify(CORE_NOTIFY_UUID, on_receive)
             await client.start_notify(CORE_INDICATE_UUID, on_receive)
             blockManager.set_le_client(client)
@@ -231,7 +235,7 @@ async def main():
     blockManager = BlockManager(len(devices_to_connect))
     
     # Scan devices
-    scanned_devices = await asyncio.gather(*(scan(device_type=device) for device in devices_to_connect))
+    scanned_devices = await asyncio.gather(*(scan(device) for device in devices_to_connect))
     
     # MESHブロックとの接続を確立し、通信を開始する  
     await asyncio.gather(*(connect_and_operate(device, blockManager) for device in scanned_devices))
