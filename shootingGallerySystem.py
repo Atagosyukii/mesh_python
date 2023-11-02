@@ -121,7 +121,7 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
         return
     if data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:  # Event Type ID のチェック
         return
-    if data[STATE_INDEX] == 3:  # ボタンが2回押されたことを判定する
+    if data[STATE_INDEX] == 3:  # ボタンが2回押されたことを判定し、GPIOブロックの電源を切る
         print('State Reset.')
         await asyncio.gather(
             control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=0, green=0, blue=127),
@@ -129,7 +129,7 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
         )
         return
-    elif data[STATE_INDEX] == 2:  # ボタンが長押しされたことを判定する
+    elif data[STATE_INDEX] == 2:  # ボタンが長押しされたことを判定し、システムを停止する
         if (operation_signal == False): return  # シグナルが停止中の場合は何もしない
         print('System Stop.')
         await asyncio.gather(
@@ -138,7 +138,7 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
         )
         operation_signal = False
-    elif data[STATE_INDEX] == 1:  # ボタンが1回押されたことを判定する
+    elif data[STATE_INDEX] == 1:  # ボタンが1回押されたことを判定し、システムを再開する
         if (operation_signal == True): return  # シグナルが動作中の場合はなにもしない
         print('System Start.')
         await asyncio.gather(
