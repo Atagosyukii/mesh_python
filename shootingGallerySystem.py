@@ -93,7 +93,7 @@ async def on_receive_notify_AC(blockManager, _, data: bytearray):
         print('Fell Over.')
         await asyncio.gather(
             play_sound_thread("sound_effect/Phrase02-1.mp3"),
-            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=127, green=0, blue=0),
+            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=84, green=56, blue=0),
             control_gpio_output_power(blockManager.get_gp_client1(), power_state=1),
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=1)
         )
