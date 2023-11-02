@@ -20,6 +20,9 @@ CORE_INDICATE_UUID = ('72c90005-57a9-4d40-b746-534e22ec9f9e')
 CORE_NOTIFY_UUID = ('72c90003-57a9-4d40-b746-534e22ec9f9e')
 CORE_WRITE_UUID = ('72c90004-57a9-4d40-b746-534e22ec9f9e')
 
+# システムを動かすためのフラグ
+operation_signal: bool = False  # True:動作中, False:停止中
+
 # MESHブロックの状態管理クラス
 class BlockManager:
     def __init__(self, total_devices):
@@ -38,6 +41,8 @@ class BlockManager:
 
     async def all_devices_connected(self):
         print('All devices connected.')
+        global operation_signal
+        operation_signal = True
         await control_led(self._le_client, duration=3000, on=500, off=500, pattern=1, red=0, green=127, blue=0)
 
     def set_ac_client(self, client):
@@ -74,6 +79,8 @@ class BlockManager:
 # Callback
 # 動きブロックから通知を受け取り、なんかするメソッド
 async def on_receive_notify_AC(blockManager, _, data: bytearray):
+    global operation_signal
+    if (operation_signal == False): return  # シグナルが停止中の場合は処理を終了する
     # Constant values
     MESSAGE_TYPE_INDEX = 0
     EVENT_TYPE_INDEX = 1
@@ -89,7 +96,7 @@ async def on_receive_notify_AC(blockManager, _, data: bytearray):
         print('Fell Over.')
         await asyncio.gather(
             play_sound_thread("sound_effect/Phrase02-1.mp3"),
-            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=127, green=0, blue=0),
+            control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=84, green=56, blue=0),
             control_gpio_output_power(blockManager.get_gp_client1(), power_state=1),
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=1)
         )
@@ -106,6 +113,7 @@ async def on_receive_notify_AC(blockManager, _, data: bytearray):
 
 # ボタンブロックから通知を受け取り、なんかするメソッド    
 async def on_receive_notify_BU(blockManager, _, data: bytearray):
+    global operation_signal
     # Constant values
     MESSAGE_TYPE_INDEX = 0
     EVENT_TYPE_INDEX = 1
@@ -117,7 +125,7 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
         return
     if data[EVENT_TYPE_INDEX] != EVENT_TYPE_ID:  # Event Type ID のチェック
         return
-    if data[STATE_INDEX] == 3:  # ボタンが2回押されたことを判定する
+    if data[STATE_INDEX] == 3:  # ボタンが2回押されたことを判定し、GPIOブロックの電源を切る
         print('State Reset.')
         await asyncio.gather(
             control_led(blockManager.get_le_client(), duration=1500, on=1500, off=0, pattern=1, red=0, green=0, blue=127),
@@ -125,12 +133,28 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
         )
         return
+    elif data[STATE_INDEX] == 2:  # ボタンが長押しされたことを判定し、システムを停止する
+        if (operation_signal == False): return  # シグナルが停止中の場合は何もしない
+        operation_signal = False
+        await asyncio.gather(
+            control_gpio_output_power(blockManager.get_gp_client1(), power_state=2),
+            control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
+        )
+        print('System Pause.')
+        await control_led(blockManager.get_le_client(), duration=3000, on=500, off=500, pattern=1, red=127, green=0, blue=0)
+    elif data[STATE_INDEX] == 1:  # ボタンが1回押されたことを判定し、システムを再開する
+        if (operation_signal == True): return  # シグナルが動作中の場合はなにもしない
+        operation_signal = True
+        print('System Resume.')
+        await control_led(blockManager.get_le_client(), duration=3000, on=500, off=500, pattern=1, red=0, green=127, blue=0)
 
 def on_receive(_, data: bytearray):
+    return
     data = bytes(data)
     print(data)
 
 def on_receive_indicate(_, data: bytearray):
+    return
     data = bytes(data)
     print('[indicate] ',data)
 
@@ -151,8 +175,9 @@ async def control_led(client, duration, on, off, pattern, red, green, blue):
 
 # GPIOブロックの電源出力を操作するメソッド
 async def control_gpio_output_power(client, power_state):
-    # クライアントが存在しない場合は処理を終了する
-    if client is None: return
+    global operation_signal
+    if client is None: return  # クライアントが存在しない場合は処理を終了する
+    if operation_signal == False: power_state = 2  # シグナルが停止中の場合は電源を切る
 
     # Constant values
     MESSAGE_TYPE_ID = 1
