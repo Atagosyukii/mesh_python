@@ -135,11 +135,11 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
         return
     elif data[STATE_INDEX] == 2:  # ボタンが長押しされたことを判定し、システムを停止する
         if (operation_signal == False): return  # シグナルが停止中の場合は何もしない
+        operation_signal = False
         await asyncio.gather(
             control_gpio_output_power(blockManager.get_gp_client1(), power_state=2),
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
         )
-        operation_signal = False
         print('System Pause.')
         await control_led(blockManager.get_le_client(), duration=3000, on=500, off=500, pattern=1, red=127, green=0, blue=0)
     elif data[STATE_INDEX] == 1:  # ボタンが1回押されたことを判定し、システムを再開する
