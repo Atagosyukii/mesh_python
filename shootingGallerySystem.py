@@ -141,7 +141,7 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
         )
         operation_signal = False
         print('System Pause.')
-        await control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=127, green=0, blue=0)
+        await control_led(blockManager.get_le_client(), duration=3000, on=500, off=500, pattern=1, red=127, green=0, blue=0)
     elif data[STATE_INDEX] == 1:  # ボタンが1回押されたことを判定し、システムを再開する
         if (operation_signal == True): return  # シグナルが動作中の場合はなにもしない
         operation_signal = True
