@@ -20,6 +20,9 @@ CORE_INDICATE_UUID = ('72c90005-57a9-4d40-b746-534e22ec9f9e')
 CORE_NOTIFY_UUID = ('72c90003-57a9-4d40-b746-534e22ec9f9e')
 CORE_WRITE_UUID = ('72c90004-57a9-4d40-b746-534e22ec9f9e')
 
+# システムを動かすためのフラグ
+operation_signal = True  # True:動作中, False:停止中
+
 # MESHブロックの状態管理クラス
 class BlockManager:
     def __init__(self, total_devices):
