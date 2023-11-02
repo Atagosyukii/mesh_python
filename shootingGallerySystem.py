@@ -140,19 +140,21 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
         )
         operation_signal = False
-        control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=127, green=0, blue=0)
+        await control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=127, green=0, blue=0)
         print('System Pause.')
     elif data[STATE_INDEX] == 1:  # ボタンが1回押されたことを判定し、システムを再開する
         if (operation_signal == True): return  # シグナルが動作中の場合はなにもしない
         operation_signal = True
-        control_led(blockManager.get_le_client(), duration=3000, on=500, off=500, pattern=1, red=0, green=127, blue=0)
+        await control_led(blockManager.get_le_client(), duration=3000, on=500, off=500, pattern=1, red=0, green=127, blue=0)
         print('System Start.'),
 
 def on_receive(_, data: bytearray):
+    return
     data = bytes(data)
     print(data)
 
 def on_receive_indicate(_, data: bytearray):
+    return
     data = bytes(data)
     print('[indicate] ',data)
 
