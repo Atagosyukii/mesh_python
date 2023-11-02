@@ -77,6 +77,7 @@ class BlockManager:
 # Callback
 # 動きブロックから通知を受け取り、なんかするメソッド
 async def on_receive_notify_AC(blockManager, _, data: bytearray):
+    if (operation_signal == False): return  # シグナルが停止中の場合は処理を終了する
     # Constant values
     MESSAGE_TYPE_INDEX = 0
     EVENT_TYPE_INDEX = 1
@@ -128,6 +129,24 @@ async def on_receive_notify_BU(blockManager, _, data: bytearray):
             control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
         )
         return
+    elif data[STATE_INDEX] == 2:  # ボタンが長押しされたことを判定する
+        if (operation_signal == False): return  # シグナルが停止中の場合は何もしない
+        print('System Stop.')
+        await asyncio.gather(
+            control_led(blockManager.get_le_client(), duration=1500, on=250, off=250, pattern=1, red=127, green=0, blue=0),
+            control_gpio_output_power(blockManager.get_gp_client1(), power_state=2),
+            control_gpio_output_power(blockManager.get_gp_client2(), power_state=2)
+        )
+        operation_signal = False
+    elif data[STATE_INDEX] == 1:  # ボタンが1回押されたことを判定する
+        if (operation_signal == True): return  # シグナルが動作中の場合はなにもしない
+        print('System Start.')
+        await asyncio.gather(
+            control_led(blockManager.get_le_client(), duration=3000, on=500, off=500, pattern=1, red=0, green=127, blue=0),
+            control_gpio_output_power(blockManager.get_gp_client1(), power_state=1),
+            control_gpio_output_power(blockManager.get_gp_client2(), power_state=1)
+        )
+        operation_signal = True
 
 def on_receive(_, data: bytearray):
     data = bytes(data)
@@ -156,6 +175,7 @@ async def control_led(client, duration, on, off, pattern, red, green, blue):
 async def control_gpio_output_power(client, power_state):
     # クライアントが存在しない場合は処理を終了する
     if client is None: return
+    if operation_signal == False: power_state = 2  # シグナルが停止中の場合は電源を切る
 
     # Constant values
     MESSAGE_TYPE_ID = 1
